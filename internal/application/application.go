@@ -15,6 +15,12 @@ import (
 	store "github.com/skvoch/blender-byte-backend/internal/store"
 )
 
+type ctxKey int8
+
+const (
+	ctxKeyRequestID ctxKey = iota
+)
+
 // Application - REST backend
 type Application struct {
 	config *Config
@@ -32,10 +38,11 @@ type Application struct {
 func New(store store.Store, config *Config, logger *logrus.Logger) (*Application, error) {
 
 	application := &Application{
-		config: config,
-		router: mux.NewRouter(),
-		logger: logger,
-		store:  store,
+		config:  config,
+		router:  mux.NewRouter(),
+		logger:  logger,
+		store:   store,
+		logined: make(map[string]string),
 	}
 	application.setupHandlers()
 
@@ -49,7 +56,13 @@ func (a *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (a *Application) setupHandlers() {
 	a.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
 
-	//a.router.HandleFunc("/v1.0/message/", a.handleMessage()).Methods("GET")
+	a.router.HandleFunc("/v1.0/login/", a.handleLogin()).Methods("POST")
+	a.router.HandleFunc("/v1.0/logout/", a.handleLogout()).Methods("POST")
+	a.router.HandleFunc("/v1.0/register/", a.handleRegister()).Methods("POST")
+
+	private := a.router.PathPrefix("/v1.0/private").Subrouter()
+	private.Use(a.middlewareLogin)
+	private.HandleFunc("/whoami/", a.handlePrivateWhoami()).Methods("GET")
 }
 
 func (a *Application) error(w http.ResponseWriter, r *http.Request, code int, err error) {
@@ -61,6 +74,18 @@ func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, 
 	if data != nil {
 		json.NewEncoder(w).Encode(data)
 	}
+}
+
+func (a *Application) middlewareLogin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uuid := r.Header.Get("X-PRIVATE-UUID")
+
+		if _, ok := a.logined[uuid]; ok {
+			next.ServeHTTP(w, r)
+		} else {
+			a.respond(w, r, http.StatusNotFound, nil)
+		}
+	})
 }
 
 func (a *Application) handleRegister() http.HandlerFunc {
@@ -83,24 +108,17 @@ func (a *Application) handleRegister() http.HandlerFunc {
 		}
 
 		if err := a.store.RegisterUser(userData); err != nil {
-			a.error(w, r, http.StatusInternalServerError, err)
+			a.error(w, r, http.StatusBadRequest, err)
 		}
+
+		a.respond(w, r, http.StatusCreated, nil)
 	}
 }
 
 func (a *Application) handleLogin() http.HandlerFunc {
 
-	type LoginRequest struct {
-		Login    string `json:"login"`
-		Password string `json:"password"`
-	}
-
-	type Response struct {
-		PrivateUUID string `json:"private_uuid"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		request := &LoginRequest{}
+		request := &model.LoginRequest{}
 
 		if err := json.NewDecoder(r.Body).Decode(request); err != nil {
 			a.logger.Error(err)
@@ -111,14 +129,14 @@ func (a *Application) handleLogin() http.HandlerFunc {
 		user, err := a.store.UserByLogin(request.Login)
 
 		if err != nil {
-			a.error(w, r, http.StatusInternalServerError, err)
+			a.error(w, r, http.StatusBadRequest, err)
 		}
 
 		if user.Password == request.Password {
 			uuid := uuid.New().String()
 
 			a.logined[uuid] = user.Login
-			a.respond(w, r, http.StatusOK, &Response{
+			a.respond(w, r, http.StatusOK, &model.LoginResponse{
 				PrivateUUID: uuid,
 			})
 		}
@@ -138,15 +156,11 @@ func (a *Application) handleLogout() http.HandlerFunc {
 
 func (a *Application) handlePrivateWhoami() http.HandlerFunc {
 
-	type Response struct {
-		Login string `json:"login"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
-		if a.logined[uuid] != "" {
-			a.respond(w, r, http.StatusOK, &Response{
+		if _, ok := a.logined[uuid]; ok {
+			a.respond(w, r, http.StatusOK, &model.WhoamiResponse{
 				Login: a.logined[uuid],
 			})
 		}
