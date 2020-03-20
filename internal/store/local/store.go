@@ -1,7 +1,7 @@
 package localstore
 
 import (
-	model "github.com/skvoch/google-cloud-example/internal/model"
+	model "github.com/skvoch/blender-byte-backend/internal/model"
 )
 
 // LocalStore - In memory store
