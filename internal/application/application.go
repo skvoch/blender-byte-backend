@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
-	store "github.com/skvoch/google-cloud-example/internal/firestore"
+	model "github.com/skvoch/blender-byte-backend/internal/model"
+	store "github.com/skvoch/blender-byte-backend/internal/store"
 )
 
 // Application - REST backend
@@ -18,16 +20,16 @@ type Application struct {
 	config *Config
 	router *mux.Router
 	logger *logrus.Logger
-	store  *store.FireStore
+
+	store store.Store
+
+	logined map[string]string
 }
 
-// New - helper function
-func New(config *Config, logger *logrus.Logger, name string, jsonPath string) (*Application, error) {
-	store, err := store.New(name, jsonPath)
+//, name string, jsonPath string
 
-	if err != nil {
-		return nil, err
-	}
+// New - helper function
+func New(store store.Store, config *Config, logger *logrus.Logger) (*Application, error) {
 
 	application := &Application{
 		config: config,
@@ -47,7 +49,11 @@ func (a *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (a *Application) setupHandlers() {
 	a.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
 
-	a.router.HandleFunc("/v1.0/message/", a.handleMessage()).Methods("GET")
+	//a.router.HandleFunc("/v1.0/message/", a.handleMessage()).Methods("GET")
+}
+
+func (a *Application) error(w http.ResponseWriter, r *http.Request, code int, err error) {
+	a.respond(w, r, code, map[string]string{"error": err.Error()})
 }
 
 func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, data interface{}) {
@@ -57,36 +63,93 @@ func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, 
 	}
 }
 
-func (a *Application) handleMessage() http.HandlerFunc {
+func (a *Application) handleRegister() http.HandlerFunc {
 
-	type Response struct {
-		Text string `json:"id"`
+	return func(w http.ResponseWriter, r *http.Request) {
+		userData := &model.UserData{}
+
+		if err := json.NewDecoder(r.Body).Decode(userData); err != nil {
+			a.logger.Error(err)
+			a.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		if state := userData.Validate(); state == false {
+			err := &model.FailedValidationError{}
+
+			a.logger.Error(err)
+			a.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		if err := a.store.RegisterUser(userData); err != nil {
+			a.error(w, r, http.StatusInternalServerError, err)
+		}
+	}
+}
+
+func (a *Application) handleLogin() http.HandlerFunc {
+
+	type LoginRequest struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
 	}
 
-	type PythonResponse struct {
-		RandomValue string `json:"RandomValue"`
+	type Response struct {
+		PrivateUUID string `json:"private_uuid"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := http.Get("http://127.0.0.1" + a.config.PythonPort + "/random/")
+		request := &LoginRequest{}
+
+		if err := json.NewDecoder(r.Body).Decode(request); err != nil {
+			a.logger.Error(err)
+			a.error(w, r, http.StatusBadRequest, err)
+			return
+		}
+
+		user, err := a.store.UserByLogin(request.Login)
 
 		if err != nil {
-			a.logger.Error(err)
-			return
+			a.error(w, r, http.StatusInternalServerError, err)
 		}
-		pythonResonce := &PythonResponse{}
-		if err := json.NewDecoder(res.Body).Decode(pythonResonce); err != nil {
-			a.logger.Error(err)
-			return
+
+		if user.Password == request.Password {
+			uuid := uuid.New().String()
+
+			a.logined[uuid] = user.Login
+			a.respond(w, r, http.StatusOK, &Response{
+				PrivateUUID: uuid,
+			})
 		}
-		hash := a.getMD5Hash(pythonResonce.RandomValue)
-		if err := a.store.AddHash(hash); err != nil {
-			a.logger.Error(err)
-			return
+	}
+}
+
+func (a *Application) handleLogout() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		uuid := r.Header.Get("X-PRIVATE-UUID")
+
+		a.logined[uuid] = ""
+
+		a.respond(w, r, http.StatusOK, nil)
+	}
+}
+
+func (a *Application) handlePrivateWhoami() http.HandlerFunc {
+
+	type Response struct {
+		Login string `json:"login"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		uuid := r.Header.Get("X-PRIVATE-UUID")
+
+		if a.logined[uuid] != "" {
+			a.respond(w, r, http.StatusOK, &Response{
+				Login: a.logined[uuid],
+			})
 		}
-		a.respond(w, r, http.StatusOK, &Response{
-			Text: hash,
-		})
 	}
 }
 

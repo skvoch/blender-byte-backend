@@ -4,7 +4,8 @@ import (
 	"net/http"
 
 	"github.com/sirupsen/logrus"
-	"github.com/skvoch/google-cloud-example/internal/application"
+	"github.com/skvoch/blender-byte-backend/internal/application"
+	localstore "github.com/skvoch/blender-byte-backend/internal/store/local"
 )
 
 func main() {
@@ -15,7 +16,9 @@ func main() {
 	//	config.BindPort = ":" + os.Getenv("PORT")
 	//}
 
-	app, err := application.New(config, logger, "blender-byte", "private.json")
+	store := localstore.NewLocalStore()
+
+	app, err := application.New(store, config, logger)
 
 	if err != nil {
 		logger.Error(err)
