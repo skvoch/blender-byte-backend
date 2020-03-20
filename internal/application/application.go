@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	store "github.com/skvoch/google-cloud-example/internal/firestore"
+	model "github.com/skvoch/google-cloud-example/internal/model"
 )
 
 // Application - REST backend
@@ -47,7 +48,11 @@ func (a *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (a *Application) setupHandlers() {
 	a.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
 
-	a.router.HandleFunc("/v1.0/message/", a.handleMessage()).Methods("GET")
+	//a.router.HandleFunc("/v1.0/message/", a.handleMessage()).Methods("GET")
+}
+
+func (a *Application) error(w http.ResponseWriter, r *http.Request, code int, err error) {
+	a.respond(w, r, code, map[string]string{"error": err.Error()})
 }
 
 func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, data interface{}) {
@@ -57,36 +62,24 @@ func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, 
 	}
 }
 
-func (a *Application) handleMessage() http.HandlerFunc {
-
-	type Response struct {
-		Text string `json:"id"`
-	}
-
-	type PythonResponse struct {
-		RandomValue string `json:"RandomValue"`
-	}
+func (a *Application) handleRegister() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := http.Get("http://127.0.0.1" + a.config.PythonPort + "/random/")
+		registerData := &model.RegisterRequest{}
 
-		if err != nil {
+		if err := json.NewDecoder(r.Body).Decode(registerData); err != nil {
 			a.logger.Error(err)
+			a.error(w, r, http.StatusBadRequest, err)
 			return
 		}
-		pythonResonce := &PythonResponse{}
-		if err := json.NewDecoder(res.Body).Decode(pythonResonce); err != nil {
+
+		if state := registerData.Validate(); state == false {
+			err := &model.FailedValidationError{}
+
 			a.logger.Error(err)
+			a.error(w, r, http.StatusBadRequest, err)
 			return
 		}
-		hash := a.getMD5Hash(pythonResonce.RandomValue)
-		if err := a.store.AddHash(hash); err != nil {
-			a.logger.Error(err)
-			return
-		}
-		a.respond(w, r, http.StatusOK, &Response{
-			Text: hash,
-		})
 	}
 }
 
