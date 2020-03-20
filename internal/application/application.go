@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/handlers"
@@ -29,7 +30,8 @@ type Application struct {
 
 	store store.Store
 
-	logined map[string]string
+	logined    map[string]string
+	loginedMux sync.Mutex
 }
 
 //, name string, jsonPath string
@@ -80,11 +82,15 @@ func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
+		a.loginedMux.Lock()
 		if _, ok := a.logined[uuid]; ok {
+			a.loginedMux.Unlock()
+
 			next.ServeHTTP(w, r)
 		} else {
 			a.respond(w, r, http.StatusNotFound, nil)
 		}
+		a.loginedMux.Unlock()
 	})
 }
 
@@ -135,10 +141,13 @@ func (a *Application) handleLogin() http.HandlerFunc {
 		if user.Password == request.Password {
 			uuid := uuid.New().String()
 
+			a.loginedMux.Lock()
 			a.logined[uuid] = user.Login
 			a.respond(w, r, http.StatusOK, &model.LoginResponse{
 				PrivateUUID: uuid,
 			})
+			a.loginedMux.Unlock()
+
 		}
 	}
 }
@@ -148,7 +157,10 @@ func (a *Application) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
+		a.loginedMux.Lock()
+
 		a.logined[uuid] = ""
+		a.loginedMux.Unlock()
 
 		a.respond(w, r, http.StatusOK, nil)
 	}
@@ -159,11 +171,14 @@ func (a *Application) handlePrivateWhoami() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
+		a.loginedMux.Lock()
+
 		if _, ok := a.logined[uuid]; ok {
 			a.respond(w, r, http.StatusOK, &model.WhoamiResponse{
 				Login: a.logined[uuid],
 			})
 		}
+		a.loginedMux.Unlock()
 	}
 }
 
