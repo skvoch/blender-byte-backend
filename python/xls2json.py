@@ -40,6 +40,6 @@ if __name__ == "__main__":
     if (len(sys.argv) == 3):
         iS = sys.argv[1]
         oS = sys.argv[2]
-    #main(iS, oS)
-    read(oS, iS)
+    main(iS, oS)
+    #read(oS, iS)
 
