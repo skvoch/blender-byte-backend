@@ -1,14 +1,14 @@
 package model
 
-// RegisterRequest ...
-type RegisterRequest struct {
+// UserData ...
+type UserData struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 	Email    string `json:"email"`
 }
 
 // Validate ...
-func (r *RegisterRequest) Validate() bool {
+func (r *UserData) Validate() bool {
 	if len(r.Email) < 6 {
 		return false
 	}
