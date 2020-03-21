@@ -9,8 +9,8 @@ type LocalStore struct {
 	users map[string]*model.UserData
 }
 
-// NewLocalStore ...
-func NewLocalStore() *LocalStore {
+// New ...
+func New() *LocalStore {
 	return &LocalStore{
 		users: make(map[string]*model.UserData),
 	}

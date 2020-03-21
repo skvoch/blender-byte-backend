@@ -5,7 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/skvoch/blender-byte-backend/internal/application"
-	localstore "github.com/skvoch/blender-byte-backend/internal/store/local"
+	psqlstore "github.com/skvoch/blender-byte-backend/internal/store/psql/"
 )
 
 func main() {
@@ -16,7 +16,12 @@ func main() {
 	//	config.BindPort = ":" + os.Getenv("PORT")
 	//}
 
-	store := localstore.NewLocalStore()
+	store, err := psqlstore.New()
+
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 
 	app, err := application.New(store, config, logger)
 
