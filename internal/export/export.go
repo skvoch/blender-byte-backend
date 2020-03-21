@@ -33,7 +33,7 @@ func (e *Exporter) Start() {
 
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	books := make([]*model.Book, 0)
+	books := make([]model.Book, 0)
 
 	err = json.Unmarshal(byteValue, &books)
 	if err != nil {

@@ -12,6 +12,7 @@ type UserData struct {
 
 // Book ...
 type Book struct {
+	gorm.Model
 	Author      string  `json:"Author"`
 	Code        string  `json:"Code"`
 	Cost        float64 `json:"Cost"`
@@ -25,6 +26,11 @@ type Book struct {
 	Series      string  `json:"Series"`
 	Sheets      int64   `json:"Sheets"`
 	Topic       string  `json:"Topic"`
+}
+
+// BooksCollection ...
+type BooksCollection struct {
+	Collection []Book
 }
 
 // NewTestUser - helper func
