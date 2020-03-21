@@ -8,6 +8,7 @@ import (
 // NewTestApplication - helper func
 func NewTestApplication() (*Application, error) {
 	store, err := psqlstore.NewTest()
+	store.Clean()
 
 	if err != nil {
 		return nil, err

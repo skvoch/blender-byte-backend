@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	model "github.com/skvoch/blender-byte-backend/internal/model"
-	store "github.com/skvoch/blender-byte-backend/internal/store"
+	psqlstore "github.com/skvoch/blender-byte-backend/internal/store/psql"
 )
 
 type ctxKey int8
@@ -28,7 +28,7 @@ type Application struct {
 	router *mux.Router
 	logger *logrus.Logger
 
-	store store.Store
+	store *psqlstore.PSQLStore
 
 	logined    map[string]string
 	loginedMux sync.Mutex
@@ -37,7 +37,7 @@ type Application struct {
 //, name string, jsonPath string
 
 // New - helper function
-func New(store store.Store, config *Config, logger *logrus.Logger) (*Application, error) {
+func New(store *psqlstore.PSQLStore, config *Config, logger *logrus.Logger) (*Application, error) {
 
 	application := &Application{
 		config:  config,
@@ -61,6 +61,8 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/login/", a.handleLogin()).Methods("POST")
 	a.router.HandleFunc("/v1.0/logout/", a.handleLogout()).Methods("POST")
 	a.router.HandleFunc("/v1.0/register/", a.handleRegister()).Methods("POST")
+
+	a.router.HandleFunc("/v1.0/types/", a.handleTypes()).Methods("GET")
 
 	private := a.router.PathPrefix("/v1.0/private").Subrouter()
 	private.Use(a.middlewareLogin)
@@ -125,6 +127,32 @@ func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 			a.respond(w, r, http.StatusNotFound, nil)
 		}
 	})
+}
+
+func (a *Application) handleTypes() http.HandlerFunc {
+
+	type Response struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		types, err := a.store.Types()
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		res := make([]*Response, 0)
+
+		for _, t := range types {
+			res = append(res, &Response{
+				Name: t.Name,
+				ID:   t.ID,
+			})
+		}
+		a.respond(w, r, http.StatusOK, res)
+	}
 }
 
 func (a *Application) handleRegister() http.HandlerFunc {

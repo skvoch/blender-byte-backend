@@ -3,6 +3,7 @@ package psqlstore
 import (
 	"github.com/jinzhu/gorm"
 	"github.com/skvoch/blender-byte-backend/internal/model"
+	gormbulk "github.com/t-tiger/gorm-bulk-insert"
 
 	// ...
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -20,9 +21,12 @@ func New() (*PSQLStore, error) {
 		return nil, err
 	}
 
-	return &PSQLStore{
+	instance := &PSQLStore{
 		db: db,
-	}, nil
+	}
+
+	instance.applyMigrate()
+	return instance, nil
 }
 
 // NewTest ...
@@ -35,9 +39,6 @@ func NewTest() (*PSQLStore, error) {
 	instance := &PSQLStore{
 		db: db,
 	}
-	instance.db.DB().Query("TRUNCATE TABLE user_data;")
-	instance.db.DB().Query("TRUNCATE TABLE types;")
-	instance.db.DB().Query("TRUNCATE TABLE books;")
 
 	instance.applyMigrate()
 
@@ -48,7 +49,13 @@ func (p *PSQLStore) applyMigrate() {
 	p.db.AutoMigrate(&model.UserData{})
 	p.db.AutoMigrate(&model.Book{})
 	p.db.AutoMigrate(&model.Type{})
+}
 
+// Clean ...
+func (p *PSQLStore) Clean() {
+	p.db.DB().Query("TRUNCATE TABLE user_data;")
+	p.db.DB().Query("TRUNCATE TABLE types;")
+	p.db.DB().Query("TRUNCATE TABLE books;")
 }
 
 // RegisterUser ...
@@ -124,6 +131,19 @@ func (p *PSQLStore) AddBook(book *model.Book) (*model.Book, error) {
 	}
 
 	return book, nil
+}
+
+// AddBooks ...
+func (p *PSQLStore) AddBooks(books []*model.Book) ([]*model.Book, error) {
+	var insertRecords []interface{}
+
+	for _, book := range books {
+		insertRecords = append(insertRecords, book)
+	}
+
+	gormbulk.BulkInsert(p.db, insertRecords, 3000)
+
+	return books, nil
 }
 
 // BookIDsByType ...

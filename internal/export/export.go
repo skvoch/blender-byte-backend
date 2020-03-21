@@ -25,7 +25,8 @@ type Exporter struct {
 
 // New ...
 func New(jsonPath string) (*Exporter, error) {
-	store, err := psqlstore.NewTest()
+	store, err := psqlstore.New()
+	store.Clean()
 
 	if err != nil {
 
@@ -111,17 +112,50 @@ func (e *Exporter) Start() {
 			log.Printf("syntax error at byte offset %d", e.Offset)
 		}
 	}
-	wg := sync.WaitGroup{}
-
-	ch := make(chan JSONBook, 128)
-
-	for i := 0; i < 30; i++ {
-		go e.handleBook(ch, &wg)
-	}
-	wg.Add(len(books))
 
 	for _, book := range books {
-		ch <- book
+		if book.Topic == "" {
+			continue
+		}
+
+		if _, ok := e.types[book.Topic]; ok {
+		} else {
+			createdType, err := e.store.AddType(&model.Type{
+				Name: book.Topic,
+			})
+
+			if err != nil {
+				fmt.Println("Create type ERROR", err)
+				continue
+			}
+			e.types[book.Topic] = createdType
+			fmt.Println("Type created: ", book.Topic)
+		}
 	}
-	wg.Wait()
+	dbBooks := make([]*model.Book, 0)
+	for _, book := range books {
+		if book.Topic == "" {
+			continue
+		}
+		_type := e.types[book.Topic]
+
+		dbBook := &model.Book{
+			Name:        book.Name,
+			Author:      book.Author,
+			Cost:        book.Cost,
+			Date:        book.Date,
+			Description: book.Description,
+			FullName:    book.FullName,
+			ISBN:        book.ISBN,
+			Photo:       book.Photo,
+			Publish:     book.Publish,
+			TypeID:      _type.ID,
+		}
+		dbBooks = append(dbBooks, dbBook)
+	}
+	dbBooks, err = e.store.AddBooks(dbBooks)
+	if err != nil {
+		fmt.Println("ERROR:", err)
+	}
+
 }
