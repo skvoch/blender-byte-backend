@@ -7,7 +7,7 @@ import (
 
 // NewTestApplication - helper func
 func NewTestApplication() (*Application, error) {
-	store := localstore.NewLocalStore()
+	store := localstore.New()
 	logger := logrus.New()
 	config := NewConfig()
 
