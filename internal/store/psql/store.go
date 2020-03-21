@@ -186,3 +186,23 @@ func (p *PSQLStore) Book(ID uint) (*model.Book, error) {
 	}
 	return book, nil
 }
+
+// FindBookIDs ...
+func (p *PSQLStore) FindBookIDs(key string) ([]uint, error) {
+
+	books := make([]*model.Book, 0)
+
+	errors := p.db.Where("position(? in full_name) > 0", key).Find(&books).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+
+	result := make([]uint, 0)
+
+	for _, book := range books {
+		result = append(result, book.ID)
+	}
+
+	return result, nil
+}

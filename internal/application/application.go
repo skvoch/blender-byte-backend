@@ -68,6 +68,7 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/types/{id}/count/", a.handleTypeBooksCount()).Methods("GET")
 
 	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
+	a.router.HandleFunc("/v1.0/find/", a.handleFind()).Methods("GET")
 
 	private := a.router.PathPrefix("/v1.0/private").Subrouter()
 	private.Use(a.middlewareLogin)
@@ -132,6 +133,28 @@ func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 			a.respond(w, r, http.StatusNotFound, nil)
 		}
 	})
+}
+
+func (a *Application) handleFind() http.HandlerFunc {
+
+	type Response struct {
+		BooksIDs []uint `json:"books_ids"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := r.URL.Query().Get("key")
+
+		IDs, err := a.store.FindBookIDs(key)
+
+		if err != nil {
+			a.error(w, r, http.StatusInternalServerError, err)
+			return
+		}
+
+		a.respond(w, r, http.StatusOK, &Response{
+			BooksIDs: IDs,
+		})
+
+	}
 }
 
 func (a *Application) handleBooksIDs() http.HandlerFunc {
