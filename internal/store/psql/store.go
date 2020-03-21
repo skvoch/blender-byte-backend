@@ -16,17 +16,18 @@ type PSQLStore struct {
 	db *gorm.DB
 }
 
-var (
-	dbUser                 = os.Getenv("DB_USER")
-	dbPwd                  = os.Getenv("DB_PASS")
-	instanceConnectionName = os.Getenv("INSTANCE_CONNECTION_NAME")
-	dbName                 = os.Getenv("DB_NAME")
-)
-
 // New - heper function
 func New() (*PSQLStore, error) {
 
-	db, err := gorm.Open("postgres", "host=/cloudsql/blender-byte:europe-west1:sql-db port=5432 user=postgres dbname=dev password=blender-byte")
+	dbString := ""
+
+	if len(os.Getenv("ENV_CLOUD")) > 0 {
+		dbString = "host=/cloudsql/blender-byte:europe-west1:sql-db port=5432 user=postgres dbname=dev password=blender-byte"
+	} else {
+		dbString = "host=34.77.221.9 port=5432 user=postgres dbname=dev password=blender-byte"
+	}
+
+	db, err := gorm.Open("postgres", dbString)
 	if err != nil {
 		return nil, err
 	}

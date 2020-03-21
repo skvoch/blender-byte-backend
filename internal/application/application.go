@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/google/uuid"
@@ -63,6 +64,9 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/register/", a.handleRegister()).Methods("POST")
 
 	a.router.HandleFunc("/v1.0/types/", a.handleTypes()).Methods("GET")
+	a.router.HandleFunc("/v1.0/types/{id}/", a.handleBooksIDs()).Queries("foo", "bar", "id", "{id:[0-9]+}").Methods("GET")
+
+	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
 
 	private := a.router.PathPrefix("/v1.0/private").Subrouter()
 	private.Use(a.middlewareLogin)
@@ -127,6 +131,48 @@ func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 			a.respond(w, r, http.StatusNotFound, nil)
 		}
 	})
+}
+
+func (a *Application) handleBooksIDs() http.HandlerFunc {
+
+	type Response struct {
+		BooksIDs []uint `json:"books_ids"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ID, err := strconv.Atoi(vars["id"])
+
+		//count := r.URL.Query().Get("count")
+		//page := r.URL.Query().Get("count")
+
+		IDs, err := a.store.BookIDsByType(ID)
+
+		if err != nil {
+			a.error(w, r, http.StatusNotFound, err)
+			return
+		}
+
+		a.respond(w, r, http.StatusOK, &Response{
+			BooksIDs: IDs,
+		})
+	}
+}
+
+func (a *Application) handleBookdByID() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ID, err := strconv.Atoi(vars["id"])
+
+		book, err := a.store.Book((uint)(ID))
+
+		if err != nil {
+			a.error(w, r, http.StatusNotFound, err)
+			return
+		}
+
+		a.respond(w, r, http.StatusOK, book)
+	}
 }
 
 func (a *Application) handleTypes() http.HandlerFunc {
