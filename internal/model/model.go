@@ -10,6 +10,23 @@ type UserData struct {
 	Email    string `json:"email" gorm:"unique;not null"`
 }
 
+// Book ...
+type Book struct {
+	Author      string  `json:"Author"`
+	Code        string  `json:"Code"`
+	Cost        float64 `json:"Cost"`
+	Date        string  `json:"Date"`
+	Description string  `json:"Description"`
+	FullName    string  `json:"FullName"`
+	ISBN        string  `json:"ISBN"`
+	Name        string  `json:"Name"`
+	Photo       string  `json:"Photo"`
+	Publish     string  `json:"Publish"`
+	Series      string  `json:"Series"`
+	Sheets      int64   `json:"Sheets"`
+	Topic       string  `json:"Topic"`
+}
+
 // NewTestUser - helper func
 func NewTestUser() *UserData {
 	return &UserData{
