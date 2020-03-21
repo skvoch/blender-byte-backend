@@ -175,6 +175,19 @@ func (p *PSQLStore) BookIDsByType(typeID int) ([]uint, error) {
 	return result, nil
 }
 
+// BooksByType ...
+func (p *PSQLStore) BooksByType(typeID int) ([]*model.Book, error) {
+	books := make([]*model.Book, 0)
+
+	errors := p.db.Find(&books, "type_id = ?", typeID).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+
+	return books, nil
+}
+
 // Book ...
 func (p *PSQLStore) Book(ID uint) (*model.Book, error) {
 	book := &model.Book{}
@@ -187,8 +200,8 @@ func (p *PSQLStore) Book(ID uint) (*model.Book, error) {
 	return book, nil
 }
 
-// FindBookIDs ...
-func (p *PSQLStore) FindBookIDs(key string) ([]uint, error) {
+// FindBook ...
+func (p *PSQLStore) FindBook(key string) ([]*model.Book, error) {
 
 	books := make([]*model.Book, 0)
 
@@ -198,13 +211,7 @@ func (p *PSQLStore) FindBookIDs(key string) ([]uint, error) {
 		return nil, err
 	}
 
-	result := make([]uint, 0)
-
-	for _, book := range books {
-		result = append(result, book.ID)
-	}
-
-	return result, nil
+	return books, nil
 }
 
 // FindBookByTag ...

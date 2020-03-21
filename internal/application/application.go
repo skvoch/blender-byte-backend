@@ -66,6 +66,7 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/types/", a.handleTypes()).Methods("GET")
 	a.router.HandleFunc("/v1.0/types/{id}/", a.handleBooksIDs()).Methods("GET")
 	a.router.HandleFunc("/v1.0/types/{id}/count/", a.handleTypeBooksCount()).Methods("GET")
+	a.router.HandleFunc("/v1.0/types/{id}/books/", a.handleTypeBooks()).Methods("GET")
 
 	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
 	a.router.HandleFunc("/v1.0/find/", a.handleFind()).Methods("GET")
@@ -143,18 +144,37 @@ func (a *Application) handleFind() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		key := r.URL.Query().Get("key")
 
-		IDs, err := a.store.FindBookIDs(key)
+		books, err := a.store.FindBook(key)
 
 		if err != nil {
 			a.error(w, r, http.StatusInternalServerError, err)
 			return
 		}
 
-		a.respond(w, r, http.StatusOK, &Response{
-			BooksIDs: IDs,
-		})
+		a.respond(w, r, http.StatusOK, books)
 
 	}
+}
+
+func (a *Application) handleTypeBooks() http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ID, err := strconv.Atoi(vars["id"])
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		books, err := a.store.BooksByType(ID)
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		a.respond(w, r, http.StatusOK, books)
+	}
+
 }
 
 func (a *Application) handleBooksIDs() http.HandlerFunc {
