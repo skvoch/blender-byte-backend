@@ -18,6 +18,7 @@ type Exporter struct {
 	jsonPath string
 
 	types map[string]*model.Type
+	tags  map[string]*model.Tag
 	store *psqlstore.PSQLStore
 	mux   sync.Mutex
 	index uint64
@@ -36,6 +37,7 @@ func New(jsonPath string) (*Exporter, error) {
 	return &Exporter{
 		jsonPath: jsonPath,
 		types:    make(map[string]*model.Type),
+		tags:     make(map[string]*model.Tag),
 		store:    store,
 	}, nil
 }
@@ -131,6 +133,23 @@ func (e *Exporter) Start() {
 			e.types[book.Topic] = createdType
 			fmt.Println("Type created: ", book.Topic)
 		}
+
+		for _, tag := range book.Tags {
+			if _, ok := e.tags[tag]; ok {
+			} else {
+				createdTag, err := e.store.AddTag(&model.Tag{
+					Text: tag,
+				})
+
+				if err != nil {
+					fmt.Println("Create tag ERROR", err)
+					continue
+				}
+				e.tags[tag] = createdTag
+				fmt.Println("Type created: ", book.Topic)
+			}
+		}
+
 	}
 	dbBooks := make([]*model.Book, 0)
 	for _, book := range books {
@@ -151,6 +170,13 @@ func (e *Exporter) Start() {
 			Publish:     book.Publish,
 			TypeID:      _type.ID,
 		}
+		tagString := ""
+		for _, tag := range book.Tags {
+			tagString += " " + tag + " "
+		}
+
+		dbBook.Tags = tagString
+
 		dbBooks = append(dbBooks, dbBook)
 	}
 	dbBooks, err = e.store.AddBooks(dbBooks)

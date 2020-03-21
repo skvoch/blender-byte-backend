@@ -26,7 +26,15 @@ type Book struct {
 	Publish     string  `json:"Publish"`
 	Series      string  `json:"Series"`
 	Sheets      int64   `json:"Sheets"`
+	Tags        string
 	TypeID      uint
+}
+
+// Tag ...
+type Tag struct {
+	gorm.Model
+
+	Text string
 }
 
 // Type ...

@@ -206,3 +206,47 @@ func (p *PSQLStore) FindBookIDs(key string) ([]uint, error) {
 
 	return result, nil
 }
+
+// FindBookByTag ...
+func (p *PSQLStore) FindBookByTag(tag string) ([]uint, error) {
+
+	books := make([]*model.Book, 0)
+
+	errors := p.db.Where("position(? in tags) > 0", tag).Find(&books).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+
+	result := make([]uint, 0)
+
+	for _, book := range books {
+		result = append(result, book.ID)
+	}
+
+	return result, nil
+}
+
+// AddTag ...
+func (p *PSQLStore) AddTag(tag *model.Tag) (*model.Tag, error) {
+	errors := p.db.Create(tag).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+
+	return tag, nil
+}
+
+// Tags ...
+func (p *PSQLStore) Tags(tag *model.Tag) ([]*model.Tag, error) {
+	tags := make([]*model.Tag, 0)
+
+	errors := p.db.Find(&tags).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+
+	return tags, nil
+}
