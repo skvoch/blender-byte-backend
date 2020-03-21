@@ -64,7 +64,7 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/register/", a.handleRegister()).Methods("POST")
 
 	a.router.HandleFunc("/v1.0/types/", a.handleTypes()).Methods("GET")
-	a.router.HandleFunc("/v1.0/types/{id}/", a.handleBooksIDs()).Queries("foo", "bar", "id", "{id:[0-9]+}").Methods("GET")
+	a.router.HandleFunc("/v1.0/types/{id}/", a.handleBooksIDs()).Methods("GET")
 
 	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
 
@@ -143,9 +143,6 @@ func (a *Application) handleBooksIDs() http.HandlerFunc {
 		vars := mux.Vars(r)
 		ID, err := strconv.Atoi(vars["id"])
 
-		//count := r.URL.Query().Get("count")
-		//page := r.URL.Query().Get("count")
-
 		IDs, err := a.store.BookIDsByType(ID)
 
 		if err != nil {
@@ -153,9 +150,20 @@ func (a *Application) handleBooksIDs() http.HandlerFunc {
 			return
 		}
 
-		a.respond(w, r, http.StatusOK, &Response{
-			BooksIDs: IDs,
-		})
+		count, err1 := strconv.Atoi(r.URL.Query().Get("count"))
+		page, err2 := strconv.Atoi(r.URL.Query().Get("page"))
+
+		if err1 != nil || err2 != nil || (count*page > len(IDs)) {
+			res := &Response{
+				BooksIDs: IDs,
+			}
+			a.respond(w, r, http.StatusOK, res)
+		} else {
+			res := &Response{
+				BooksIDs: IDs[count*page : (count*page)+count],
+			}
+			a.respond(w, r, http.StatusOK, res)
+		}
 	}
 }
 
