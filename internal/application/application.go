@@ -65,6 +65,7 @@ func (a *Application) setupHandlers() {
 
 	a.router.HandleFunc("/v1.0/types/", a.handleTypes()).Methods("GET")
 	a.router.HandleFunc("/v1.0/types/{id}/", a.handleBooksIDs()).Methods("GET")
+	a.router.HandleFunc("/v1.0/types/{id}/count/", a.handleTypeBooksCount()).Methods("GET")
 
 	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
 
@@ -180,6 +181,32 @@ func (a *Application) handleBookdByID() http.HandlerFunc {
 		}
 
 		a.respond(w, r, http.StatusOK, book)
+	}
+}
+
+func (a *Application) handleTypeBooksCount() http.HandlerFunc {
+
+	type Response struct {
+		Count int `json:"count"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		ID, err := strconv.Atoi(vars["id"])
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		IDs, err := a.store.BookIDsByType(ID)
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		a.respond(w, r, http.StatusOK, &Response{
+			Count: len(IDs),
+		})
 	}
 }
 
