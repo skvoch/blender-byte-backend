@@ -78,19 +78,52 @@ func (a *Application) respond(w http.ResponseWriter, r *http.Request, code int, 
 	}
 }
 
+func (a *Application) uuidIsLogined(uuid string) bool {
+	result := false
+
+	a.loginedMux.Lock()
+	if _, ok := a.logined[uuid]; ok {
+		result = ok
+	}
+	a.loginedMux.Unlock()
+
+	return result
+}
+
+func (a *Application) uuidRemoveLogined(uuid string) {
+	a.loginedMux.Lock()
+
+	a.logined[uuid] = ""
+	a.loginedMux.Unlock()
+}
+
+func (a *Application) uuidSetLogined(uuid string, login string) {
+	a.loginedMux.Lock()
+	a.logined[uuid] = login
+	a.loginedMux.Unlock()
+}
+
+func (a *Application) uuidGetLogin(uuid string) string {
+	result := ""
+
+	if a.uuidIsLogined(uuid) {
+		a.loginedMux.Lock()
+		result = a.logined[uuid]
+		a.loginedMux.Unlock()
+	}
+
+	return result
+}
+
 func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
-		a.loginedMux.Lock()
-		if _, ok := a.logined[uuid]; ok {
-			a.loginedMux.Unlock()
-
+		if a.uuidIsLogined(uuid) {
 			next.ServeHTTP(w, r)
 		} else {
 			a.respond(w, r, http.StatusNotFound, nil)
 		}
-		a.loginedMux.Unlock()
 	})
 }
 
@@ -141,12 +174,11 @@ func (a *Application) handleLogin() http.HandlerFunc {
 		if user.Password == request.Password {
 			uuid := uuid.New().String()
 
-			a.loginedMux.Lock()
-			a.logined[uuid] = user.Login
+			a.uuidSetLogined(uuid, user.Login)
+
 			a.respond(w, r, http.StatusOK, &model.LoginResponse{
 				PrivateUUID: uuid,
 			})
-			a.loginedMux.Unlock()
 
 		}
 	}
@@ -157,10 +189,7 @@ func (a *Application) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
-		a.loginedMux.Lock()
-
-		a.logined[uuid] = ""
-		a.loginedMux.Unlock()
+		a.uuidRemoveLogined(uuid)
 
 		a.respond(w, r, http.StatusOK, nil)
 	}
@@ -171,14 +200,11 @@ func (a *Application) handlePrivateWhoami() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuid := r.Header.Get("X-PRIVATE-UUID")
 
-		a.loginedMux.Lock()
-
-		if _, ok := a.logined[uuid]; ok {
+		if a.uuidIsLogined(uuid) {
 			a.respond(w, r, http.StatusOK, &model.WhoamiResponse{
-				Login: a.logined[uuid],
+				Login: a.uuidGetLogin(uuid),
 			})
 		}
-		a.loginedMux.Unlock()
 	}
 }
 

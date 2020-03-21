@@ -35,6 +35,7 @@ func NewTest() (*PSQLStore, error) {
 	instance := &PSQLStore{
 		db: db,
 	}
+	instance.db.DB().Query("TRUNCATE TABLE user_data;")
 	instance.applyMigrate()
 
 	return instance, nil
