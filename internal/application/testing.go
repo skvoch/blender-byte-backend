@@ -2,12 +2,17 @@ package application
 
 import (
 	"github.com/sirupsen/logrus"
-	localstore "github.com/skvoch/blender-byte-backend/internal/store/local"
+	psqlstore "github.com/skvoch/blender-byte-backend/internal/store/psql"
 )
 
 // NewTestApplication - helper func
 func NewTestApplication() (*Application, error) {
-	store := localstore.New()
+	store, err := psqlstore.NewTest()
+
+	if err != nil {
+		return nil, err
+	}
+
 	logger := logrus.New()
 	config := NewConfig()
 

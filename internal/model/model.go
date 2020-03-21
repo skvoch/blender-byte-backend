@@ -5,10 +5,9 @@ import "github.com/jinzhu/gorm"
 // UserData ...
 type UserData struct {
 	gorm.Model
-
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	Login    string `json:"login" gorm:"unique;not null"`
+	Password string `json:"password" gorm:"not null"`
+	Email    string `json:"email" gorm:"unique;not null"`
 }
 
 // NewTestUser - helper func

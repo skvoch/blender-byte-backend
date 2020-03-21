@@ -25,8 +25,33 @@ func New() (*PSQLStore, error) {
 	}, nil
 }
 
+// NewTest ...
+func NewTest() (*PSQLStore, error) {
+	db, err := gorm.Open("postgres", "host=34.77.221.9 port=5432 user=postgres dbname=test password=blender-byte")
+	if err != nil {
+		return nil, err
+	}
+
+	instance := &PSQLStore{
+		db: db,
+	}
+	instance.applyMigrate()
+
+	return instance, nil
+}
+
+func (p *PSQLStore) applyMigrate() {
+	p.db.AutoMigrate(&model.UserData{})
+}
+
 // RegisterUser ...
 func (p *PSQLStore) RegisterUser(data *model.UserData) error {
+	errors := p.db.Create(data).GetErrors()
+
+	for _, err := range errors {
+		return err
+	}
+
 	return nil
 }
 
@@ -37,5 +62,12 @@ func (p *PSQLStore) Users() ([]*model.UserData, error) {
 
 // UserByLogin ...
 func (p *PSQLStore) UserByLogin(login string) (*model.UserData, error) {
-	return nil, nil
+	user := &model.UserData{}
+
+	errors := p.db.First(&user, "login = ?", login).GetErrors()
+
+	for _, err := range errors {
+		return nil, err
+	}
+	return user, nil
 }
