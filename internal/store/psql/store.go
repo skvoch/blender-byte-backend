@@ -215,7 +215,7 @@ func (p *PSQLStore) FindBook(key string) ([]*model.Book, error) {
 }
 
 // FindBookByTag ...
-func (p *PSQLStore) FindBookByTag(tag string) ([]uint, error) {
+func (p *PSQLStore) FindBookByTag(tag string) ([]*model.Book, error) {
 
 	books := make([]*model.Book, 0)
 
@@ -224,14 +224,7 @@ func (p *PSQLStore) FindBookByTag(tag string) ([]uint, error) {
 	for _, err := range errors {
 		return nil, err
 	}
-
-	result := make([]uint, 0)
-
-	for _, book := range books {
-		result = append(result, book.ID)
-	}
-
-	return result, nil
+	return books, nil
 }
 
 // AddTag ...
