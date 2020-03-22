@@ -60,6 +60,7 @@ func (p *PSQLStore) applyMigrate() {
 	p.db.AutoMigrate(&model.UserData{})
 	p.db.AutoMigrate(&model.Book{})
 	p.db.AutoMigrate(&model.Type{})
+	p.db.AutoMigrate(&model.Tag{})
 }
 
 // Clean ...
@@ -238,8 +239,21 @@ func (p *PSQLStore) AddTag(tag *model.Tag) (*model.Tag, error) {
 	return tag, nil
 }
 
+// AddTags ...
+func (p *PSQLStore) AddTags(tags []*model.Tag) ([]*model.Tag, error) {
+	var insertRecords []interface{}
+
+	for _, tag := range tags {
+		insertRecords = append(insertRecords, tag)
+	}
+
+	gormbulk.BulkInsert(p.db, insertRecords, 3000)
+
+	return tags, nil
+}
+
 // Tags ...
-func (p *PSQLStore) Tags(tag *model.Tag) ([]*model.Tag, error) {
+func (p *PSQLStore) Tags() ([]*model.Tag, error) {
 	tags := make([]*model.Tag, 0)
 
 	errors := p.db.Find(&tags).GetErrors()

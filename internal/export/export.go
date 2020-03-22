@@ -19,6 +19,7 @@ type Exporter struct {
 
 	types map[string]*model.Type
 	tags  map[string]*model.Tag
+	books map[string]bool
 	store *psqlstore.PSQLStore
 	mux   sync.Mutex
 	index uint64
@@ -38,6 +39,7 @@ func New(jsonPath string) (*Exporter, error) {
 		jsonPath: jsonPath,
 		types:    make(map[string]*model.Type),
 		tags:     make(map[string]*model.Tag),
+		books:    make(map[string]bool),
 		store:    store,
 	}, nil
 }
@@ -114,6 +116,7 @@ func (e *Exporter) Start() {
 			log.Printf("syntax error at byte offset %d", e.Offset)
 		}
 	}
+	tags := make([]*model.Tag, 0)
 
 	for _, book := range books {
 		if book.Topic == "" {
@@ -137,51 +140,59 @@ func (e *Exporter) Start() {
 		for _, tag := range book.Tags {
 			if _, ok := e.tags[tag]; ok {
 			} else {
-				createdTag, err := e.store.AddTag(&model.Tag{
+				c := &model.Tag{
 					Text: tag,
-				})
-
-				if err != nil {
-					fmt.Println("Create tag ERROR", err)
-					continue
 				}
-				e.tags[tag] = createdTag
-				fmt.Println("Type created: ", book.Topic)
+				tags = append(tags, c)
+				e.tags[tag] = c
 			}
 		}
-
 	}
+
+	if _, err := e.store.AddTags(tags); err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	dbBooks := make([]*model.Book, 0)
+	booksCount := len(books)
+	fmt.Println(booksCount)
 	for _, book := range books {
 		if book.Topic == "" {
 			continue
 		}
-		_type := e.types[book.Topic]
 
-		dbBook := &model.Book{
-			Name:        book.Name,
-			Author:      book.Author,
-			Cost:        book.Cost,
-			Date:        book.Date,
-			Description: book.Description,
-			FullName:    book.FullName,
-			ISBN:        book.ISBN,
-			Photo:       book.Photo,
-			Publish:     book.Publish,
-			TypeID:      _type.ID,
+		if _, ok := e.books[book.FullName]; ok {
+		} else {
+
+			_type := e.types[book.Topic]
+
+			dbBook := &model.Book{
+				Name:        book.Name,
+				Author:      book.Author,
+				Cost:        book.Cost,
+				Date:        book.Date,
+				Description: book.Description,
+				FullName:    book.FullName,
+				ISBN:        book.ISBN,
+				Photo:       book.Photo,
+				Publish:     book.Publish,
+				TypeID:      _type.ID,
+			}
+			tagString := ""
+			for _, tag := range book.Tags {
+				tagString += " " + tag + " "
+			}
+
+			dbBook.Tags = tagString
+
+			dbBooks = append(dbBooks, dbBook)
+			e.books[book.FullName] = true
+			if err != nil {
+				fmt.Println("ERROR:", err)
+			}
 		}
-		tagString := ""
-		for _, tag := range book.Tags {
-			tagString += " " + tag + " "
-		}
-
-		dbBook.Tags = tagString
-
-		dbBooks = append(dbBooks, dbBook)
 	}
 	dbBooks, err = e.store.AddBooks(dbBooks)
-	if err != nil {
-		fmt.Println("ERROR:", err)
-	}
 
 }

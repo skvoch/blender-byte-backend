@@ -71,6 +71,7 @@ func (a *Application) setupHandlers() {
 	a.router.HandleFunc("/v1.0/books/{id}/", a.handleBookdByID()).Methods("GET")
 	a.router.HandleFunc("/v1.0/find/", a.handleFind()).Methods("GET")
 	a.router.HandleFunc("/v1.0/find_tag/", a.handleFindTag()).Methods("GET")
+	a.router.HandleFunc("/v1.0/tags/", a.handleTags()).Methods("GET")
 
 	private := a.router.PathPrefix("/v1.0/private").Subrouter()
 	private.Use(a.middlewareLogin)
@@ -137,6 +138,18 @@ func (a *Application) middlewareLogin(next http.Handler) http.Handler {
 	})
 }
 
+func (a *Application) handleTags() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tags, err := a.store.Tags()
+
+		if err != nil {
+			a.error(w, r, http.StatusBadRequest, err)
+		}
+
+		a.respond(w, r, http.StatusOK, tags)
+	}
+}
+
 func (a *Application) handleFindTag() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +202,15 @@ func (a *Application) handleTypeBooks() http.HandlerFunc {
 			a.error(w, r, http.StatusBadRequest, err)
 		}
 
-		a.respond(w, r, http.StatusOK, books)
+		count, err1 := strconv.Atoi(r.URL.Query().Get("count"))
+		page, err2 := strconv.Atoi(r.URL.Query().Get("page"))
+
+		if err1 != nil || err2 != nil || (count*page > len(books)) {
+
+			a.respond(w, r, http.StatusOK, books)
+		} else {
+			a.respond(w, r, http.StatusOK, books[count*page:(count*page)+count])
+		}
 	}
 
 }

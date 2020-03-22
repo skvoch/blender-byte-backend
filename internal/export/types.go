@@ -12,7 +12,7 @@ type JSONBook struct {
 	Name        string   `json:"Name"`
 	Photo       string   `json:"Photo"`
 	Publish     string   `json:"Publish"`
-	Tags        []string `json:"Tags"`
+	Tags        []string `json:"dataScience"`
 	//Series      int     `json:"Series"`
 	Sheets int    `json:"Sheets"`
 	Topic  string `json:"Topic"`
